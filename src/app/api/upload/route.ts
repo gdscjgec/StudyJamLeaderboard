@@ -54,12 +54,18 @@ function processLeaderboardData(
 
   // Update or add new frozen users
   const updatedFrozenUsers = { ...currentFrozen };
-  finalLeaderboard.forEach((user) => {
-    const email = user['User Email'];
-    if (user['All Skill Badges & Games Completed'] === 'Yes' && !updatedFrozenUsers[email]) {
-      updatedFrozenUsers[email] = { rank: user.rank, data: { ...user } };
-    }
-  });
+finalLeaderboard.forEach((user) => {
+  const email = user['User Email'];
+  const completed = user['All Skill Badges & Games Completed'];
+  console.log('User:', email, 'Completed:', completed); // <-- Add this line
+  if (
+    completed &&
+    completed.toLowerCase().trim() === 'yes' &&
+    !updatedFrozenUsers[email]
+  ) {
+    updatedFrozenUsers[email] = { rank: user.rank, data: { ...user } };
+  }
+});
 
   // Sort for display order without reassigning frozen ranks
   finalLeaderboard.sort((a, b) => {
@@ -79,6 +85,14 @@ function processLeaderboardData(
   });
 
   return { entries: finalLeaderboard, frozenUsers: updatedFrozenUsers };
+}
+
+function normalizeKeys(obj: Record<string, string>) {
+  const normalized: Record<string, string> = {};
+  Object.keys(obj).forEach((key) => {
+    normalized[key.trim()] = obj[key];
+  });
+  return normalized;
 }
 
 export async function POST(request: NextRequest) {
@@ -102,7 +116,7 @@ export async function POST(request: NextRequest) {
     const parsedUsers: Record<string, string>[] = [];
     await new Promise<void>((resolve, reject) => {
       stream
-        .pipe(csvParser({ headers: true, quote: '"', escape: '"' }))
+        .pipe(csvParser({ quote: '"', escape: '"' })) // <--- Remove headers: true
         .on('data', (row) => parsedUsers.push(row))
         .on('end', resolve)
         .on('error', (err) => {
@@ -111,26 +125,20 @@ export async function POST(request: NextRequest) {
         });
     });
 
-    console.log('📊 Parsed users (before filter):', parsedUsers.length);
+    console.log('📊 Parsed users:', parsedUsers.length);
+    console.log('🔎 First parsed row:', parsedUsers[0]); // Should show actual data
 
     if (parsedUsers.length === 0) {
       return NextResponse.json({ error: 'CSV file is empty or invalid' }, { status: 400 });
     }
 
-    const dataRows = parsedUsers.slice(1); // Skip the first row (header)
-    console.log('📊 Parsed users (after filter):', dataRows.length);
+    const normalizedRows = parsedUsers.map(normalizeKeys);
 
-    if (dataRows.length === 0) {
-      return NextResponse.json({ error: 'No data rows found after removing header' }, { status: 400 });
-    }
+    // Fetch current frozen users from the database
+    const leaderboardDoc = await Leaderboard.findOne({});
+    const currentFrozen: Record<string, FrozenUser> = leaderboardDoc?.frozenUsers || {};
 
-    await connectToDatabase();
-    const doc = await Leaderboard.findOne({});
-    const currentFrozen = doc?.frozenUsers || {};
-
-    console.log('🔒 Current frozen users:', Object.keys(currentFrozen).length);
-
-    const { entries, frozenUsers } = processLeaderboardData(dataRows, currentFrozen);
+    const { entries, frozenUsers } = processLeaderboardData(normalizedRows, currentFrozen);
 
     await Leaderboard.findOneAndUpdate(
       {},
@@ -139,7 +147,9 @@ export async function POST(request: NextRequest) {
     );
 
     console.log('✅ Upload success! Entries saved:', entries.length);
+    console.log('🔒 Frozen users after upload:', Object.keys(frozenUsers));
     return NextResponse.json({ success: true, message: 'Leaderboard updated successfully' });
+
   } catch (error: any) {
     console.error('💥 Upload error details:', error);
     return NextResponse.json(
@@ -147,4 +157,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
 }

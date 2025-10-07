@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Upload, Crown, ExternalLink, Loader2, Trophy, Sun, Moon, Lock, Search, LogOut } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Home() {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
@@ -23,6 +24,7 @@ export default function Home() {
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Admin login check
   const handleAdminLogin = () => {
@@ -147,27 +149,27 @@ export default function Home() {
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-          <header className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div className="flex items-center gap-4">
+        <main className={`flex flex-1 flex-col gap-4 ${isMobile ? "p-2" : "p-4 md:gap-8 md:p-10"}`}>
+          <header className={`flex flex-col gap-2 ${isMobile ? "mb-2" : "mb-4"}`}>
+            <div className={`flex ${isMobile ? "flex-col items-center gap-2" : "flex-row items-center justify-between gap-4"}`}>
+              <div className={`flex ${isMobile ? "flex-col items-center gap-2" : "flex-row items-center gap-4"}`}>
                 <Image
                   src="/GDGoC JGEC Logo.png"
                   alt="GDG JGEC Logo"
-                  width={64}
-                  height={64}
-                  className="rounded-full"
+                  width={isMobile ? 56 : 72}
+                  height={isMobile ? 56 : 72}
+                  className="rounded-full shadow"
                 />
-                <div>
-                  <h1 className="font-headline text-3xl sm:text-4xl font-bold tracking-tighter xl:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+                <div className={isMobile ? "text-center" : ""}>
+                  <h1 className={`font-headline font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent ${isMobile ? "text-2xl" : "text-4xl xl:text-5xl"}`}>
                     JGEC Study Jam Leaderboard
                   </h1>
-                  <p className="max-w-[700px] text-foreground/80 text-base md:text-lg">
+                  <p className={`max-w-[700px] text-foreground/80 ${isMobile ? "text-sm mt-1" : "text-base md:text-lg"}`}>
                     Google Study Jam 2025-26 progress for Jalpaiguri Government Engineering College.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 self-end sm:self-start">
+              <div className={`flex items-center gap-2 ${isMobile ? "mt-3 justify-center" : "self-end"}`}>
                 {!isAdmin && (
                   <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
                     <DialogTrigger asChild>
@@ -208,11 +210,12 @@ export default function Home() {
                 </Button>
               </div>
             </div>
+            <div className="border-b border-muted/40 mt-2" />
           </header>
 
           {isAdmin && (
             <Card>
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <CardHeader className={`flex ${isMobile ? "flex-col gap-2" : "flex-col sm:flex-row items-start sm:items-center justify-between gap-4"}`}>
                 <div>
                   <CardTitle>Admin Controls</CardTitle>
                   <CardDescription>Upload new leaderboard data.</CardDescription>
@@ -242,7 +245,7 @@ export default function Home() {
           )}
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className={`flex ${isMobile ? "flex-col gap-2" : "flex-row items-center justify-between"}`}>
               <CardTitle>Current Standings</CardTitle>
               <div className="relative w-full sm:w-auto max-w-[300px]">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -256,29 +259,17 @@ export default function Home() {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[70px] text-center">Rank</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead className="text-center">Skill Badges</TableHead>
-                    <TableHead className="text-center hidden sm:table-cell">Arcade Games</TableHead>
-                    <TableHead className="text-center">Profile</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              {isMobile ? (
+                <div className="flex flex-col gap-2">
                   {filteredLeaderboardData.length > 0 ? (
                     filteredLeaderboardData.map((user, index) => {
                       const safeKey = user['User Email'] || `${user['User Name'] || 'unknown'}-${index}`;
                       const isFrozen = frozenUsers[user['User Email']] || user['All Skill Badges & Games Completed'] === 'Yes';
                       const displayRank = isFrozen && frozenUsers[user['User Email']] ? frozenUsers[user['User Email']].rank : user.rank;
                       return (
-                        <TableRow
-                          key={safeKey}
-                          className={isFrozen ? "bg-green-100 dark:bg-green-900/30" : ""}
-                        >
-                          <TableCell className="font-bold text-center text-lg">
-                            <div className="flex items-center justify-center gap-2">
+                        <Card key={safeKey} className={isFrozen ? "bg-green-100 dark:bg-green-900/30" : ""}>
+                          <CardHeader className="flex flex-row items-center gap-2">
+                            <div className="font-bold text-lg flex items-center gap-2">
                               {getRankBadge(displayRank)}
                               {isFrozen && (
                                 <Tooltip>
@@ -291,20 +282,10 @@ export default function Home() {
                                 </Tooltip>
                               )}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium">{user['User Name']}</div>
-                            <div className="hidden text-sm text-muted-foreground sm:inline">
-                              {user['User Email']}
+                            <div className="flex-1">
+                              <div className="font-medium">{user['User Name']}</div>
+                              <div className="text-sm text-muted-foreground">{user['User Email']}</div>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-center font-mono text-base">
-                            {user['# of Skill Badges Completed']}
-                          </TableCell>
-                          <TableCell className="text-center font-mono text-base hidden sm:table-cell">
-                            {user['# of Arcade Games Completed']}
-                          </TableCell>
-                          <TableCell className="text-center">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -326,19 +307,115 @@ export default function Home() {
                                 <p>View Google Cloud Skills Boost Profile</p>
                               </TooltipContent>
                             </Tooltip>
-                          </TableCell>
-                        </TableRow>
+                          </CardHeader>
+                          <CardContent className="flex flex-row gap-4 text-sm">
+                            <div>
+                              <span className="font-semibold">Skill Badges:</span> {user['# of Skill Badges Completed']}
+                            </div>
+                            <div>
+                              <span className="font-semibold">Arcade Games:</span> {user['# of Arcade Games Completed']}
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })
                   ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        {searchQuery ? "No users found." : "No data available. Please upload a CSV file to begin."}
-                      </TableCell>
-                    </TableRow>
+                    <div className="text-center py-8">
+                      {searchQuery ? "No users found." : "No data available. Please upload a CSV file to begin."}
+                    </div>
                   )}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className={isMobile ? "sticky top-0 bg-muted z-10" : ""}>
+                      <TableRow>
+                        <TableHead className="w-[70px] text-center">Rank</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead className="text-center">Skill Badges</TableHead>
+                        {!isMobile && (
+                          <TableHead className="text-center hidden sm:table-cell">Arcade Games</TableHead>
+                        )}
+                        <TableHead className="text-center">Profile</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLeaderboardData.length > 0 ? (
+                        filteredLeaderboardData.map((user, index) => {
+                          const safeKey = user['User Email'] || `${user['User Name'] || 'unknown'}-${index}`;
+                          const isFrozen = frozenUsers[user['User Email']] || user['All Skill Badges & Games Completed'] === 'Yes';
+                          const displayRank = isFrozen && frozenUsers[user['User Email']] ? frozenUsers[user['User Email']].rank : user.rank;
+                          return (
+                            <TableRow
+                              key={safeKey}
+                              className={isFrozen ? "bg-green-100 dark:bg-green-900/30" : ""}
+                            >
+                              <TableCell className="font-bold text-center text-lg">
+                                <div className="flex items-center justify-center gap-2">
+                                  {getRankBadge(displayRank)}
+                                  {isFrozen && (
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <Lock className="h-4 w-4 text-green-600" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>This user's rank is locked as they completed all tasks on rank {displayRank}.</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium">{user['User Name']}</div>
+                                <div className="hidden text-sm text-muted-foreground sm:inline">
+                                  {user['User Email']}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center font-mono text-base">
+                                {user['# of Skill Badges Completed']}
+                              </TableCell>
+                              {!isMobile && (
+                                <TableCell className="text-center font-mono text-base hidden sm:table-cell">
+                                  {user['# of Arcade Games Completed']}
+                                </TableCell>
+                              )}
+                              <TableCell className="text-center">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      asChild
+                                      variant="ghost"
+                                      size="icon"
+                                      disabled={!user['Google Cloud Skills Boost Profile URL']}
+                                    >
+                                      <a
+                                        href={user['Google Cloud Skills Boost Profile URL']}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                      </a>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>View Google Cloud Skills Boost Profile</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={isMobile ? 4 : 5} className="h-24 text-center">
+                            {searchQuery ? "No users found." : "No data available. Please upload a CSV file to begin."}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </main>

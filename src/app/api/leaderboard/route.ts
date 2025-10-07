@@ -6,9 +6,9 @@ export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
     const doc = await Leaderboard.findOne({}) || { entries: [], frozenUsers: {} };
-    console.log('Database Response:', doc); // Debug the fetched document
+    const frozenUsers: Record<string, FrozenUser> = doc.frozenUsers || {};
 
-    // Transform the entries to match the expected structure
+    // Transform entries
     const transformedEntries = Array.isArray(doc.entries)
       ? doc.entries.map((entry: any) => ({
           rank: entry.rank,
@@ -22,12 +22,23 @@ export async function GET(request: NextRequest) {
           'Names of Completed Skill Badges': entry._7 || entry['Names of Completed Skill Badges'] || '',
           '# of Arcade Games Completed': entry._8 || entry['# of Arcade Games Completed'] || 0,
           'Names of Completed Arcade Games': entry._9 || entry['Names of Completed Arcade Games'] || '',
-        })).filter((entry: any) => entry['User Email']) // Filter out entries without email
+        })).filter((entry: any) => entry['User Email'])
       : [];
 
-    // To ensure, sort and reassign if needed, but since upload does it, optional
-    // But to be safe, do it
-    const sortedEntries = [...transformedEntries].sort((a, b) => {
+    // Separate frozen and active users
+    const frozenEntries = transformedEntries.filter(
+      (user: { [x: string]: string | number; }) => frozenUsers[user['User Email']]
+    ).map((user: { [x: string]: string | number; }) => ({
+      ...user,
+      rank: frozenUsers[user['User Email']].rank, // Ensure frozen rank
+    }));
+
+    const activeUsers = transformedEntries.filter(
+      (user: { [x: string]: string | number; }) => !frozenUsers[user['User Email']]
+    );
+
+    // Sort active users and assign ranks, skipping frozen ranks
+    activeUsers.sort((a: { [x: string]: any; }, b: { [x: string]: any; }) => {
       const aCompleted = a['All Skill Badges & Games Completed'] === 'Yes' ? 1 : 0;
       const bCompleted = b['All Skill Badges & Games Completed'] === 'Yes' ? 1 : 0;
       if (aCompleted !== bCompleted) return bCompleted - aCompleted;
@@ -35,13 +46,23 @@ export async function GET(request: NextRequest) {
       const bTotal = (b['# of Skill Badges Completed'] || 0) + (b['# of Arcade Games Completed'] || 0);
       return bTotal - aTotal;
     });
-    sortedEntries.forEach((entry, index) => {
-      entry.rank = index + 1;
+
+    const occupiedRanks = new Set<number>(frozenEntries.map((u: { rank: any; }) => u.rank));
+    let currentRank = 1;
+    activeUsers.forEach((user: { rank: number; }) => {
+      while (occupiedRanks.has(currentRank)) {
+        currentRank++;
+      }
+      user.rank = currentRank;
+      currentRank++;
     });
+
+    // Combine for final leaderboard
+    const sortedEntries = [...frozenEntries, ...activeUsers].sort((a, b) => a.rank - b.rank);
 
     return NextResponse.json({
       entries: sortedEntries as LeaderboardEntry[],
-      frozenUsers: doc.frozenUsers as Record<string, FrozenUser>,
+      frozenUsers: frozenUsers,
     });
   } catch (error) {
     console.error('Failed to fetch leaderboard:', error);
